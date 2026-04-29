@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Веб-скрапинг — квиз</title>
+<style>
+  /* ===== PALETTE (matches presentation) ===== */
+  :root {
+    --bg-dark:    #0E1525;
+    --bg-panel:   #162033;
+    --bg-code:    #0A1020;
+    --amber:      #FFC857;
+    --amber-dim:  #C8964A;
+    --teal:       #06D6A0;
+    --teal-dim:   #048A66;
+    --coral:      #EF6461;
+    --text-hi:    #F5F7FA;
+    --text-mid:   #9AA5B8;
+    --text-dim:   #5B6677;
+    --rule:       #263048;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg-dark);
+    color: var(--text-hi);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    min-height: 100vh;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 32px 16px;
+    line-height: 1.5;
+  }
+
+  .container {
+    width: 100%;
+    max-width: 720px;
+  }
+
+  /* ===== TOP HEADER ===== */
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 32px;
+    font-family: "Consolas", "Menlo", monospace;
+    font-size: 11px;
+    letter-spacing: 3px;
+  }
+  .header .left  { color: var(--amber); }
+  .header .right { color: var(--text-mid); }
+
+  /* ===== SCREENS ===== */
+  .screen { display: none; }
+  .screen.active { display: block; animation: fadeIn .3s ease; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ===== START SCREEN ===== */
+  .start-title {
+    font-size: 56px;
+    font-weight: 700;
+    color: var(--amber);
+    line-height: 1;
+    margin-bottom: 16px;
+    letter-spacing: -1px;
+  }
+  .start-subtitle {
+    font-size: 18px;
+    color: var(--teal);
+    font-family: "Consolas", monospace;
+    margin-bottom: 32px;
+  }
+  .start-desc {
+    color: var(--text-mid);
+    font-size: 15px;
+    margin-bottom: 40px;
+    max-width: 520px;
+  }
+
+  /* ===== BUTTONS ===== */
+  .btn {
+    display: inline-block;
+    background: var(--amber);
+    color: var(--bg-dark);
+    border: none;
+    padding: 14px 32px;
+    font-size: 15px;
+    font-weight: 600;
+    font-family: "Consolas", monospace;
+    letter-spacing: 2px;
+    cursor: pointer;
+    transition: transform .15s, box-shadow .15s;
+    text-transform: uppercase;
+  }
+  .btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(255, 200, 87, 0.3);
+  }
+  .btn:disabled {
+    background: var(--rule);
+    color: var(--text-dim);
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
+  .btn-secondary {
+    background: transparent;
+    color: var(--teal);
+    border: 1px solid var(--teal);
+  }
+  .btn-secondary:hover {
+    background: var(--teal);
+    color: var(--bg-dark);
+    box-shadow: 0 4px 16px rgba(6, 214, 160, 0.3);
+  }
+
+  /* ===== QUESTION SCREEN ===== */
+  .progress-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+  }
+  .progress-label {
+    font-family: "Consolas", monospace;
+    font-size: 12px;
+    color: var(--amber);
+    letter-spacing: 3px;
+  }
+  .progress-bar {
+    flex: 1;
+    height: 3px;
+    background: var(--rule);
+    margin-left: 24px;
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: var(--amber);
+    transition: width .4s ease;
+  }
+
+  .question-text {
+    font-size: 24px;
+    font-weight: 600;
+    margin-bottom: 32px;
+    line-height: 1.3;
+  }
+  .question-text code {
+    font-family: "Consolas", "Menlo", monospace;
+    background: var(--bg-code);
+    color: var(--teal);
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 0.9em;
+  }
+
+  .options {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 32px;
+  }
+  .option {
+    background: var(--bg-panel);
+    border: 1px solid var(--rule);
+    color: var(--text-hi);
+    padding: 16px 20px;
+    text-align: left;
+    font-family: inherit;
+    font-size: 15px;
+    cursor: pointer;
+    transition: all .15s;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    line-height: 1.4;
+  }
+  .option:hover {
+    border-color: var(--amber-dim);
+    background: #1A2540;
+  }
+  .option .letter {
+    color: var(--amber);
+    font-family: "Consolas", monospace;
+    font-weight: 700;
+    flex-shrink: 0;
+    width: 24px;
+  }
+  .option.selected {
+    border-color: var(--amber);
+    background: rgba(255, 200, 87, 0.08);
+    box-shadow: inset 4px 0 0 var(--amber);
+  }
+  .option.selected .letter {
+    color: var(--amber);
+  }
+
+  .nav-row {
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  /* ===== FINAL SCREEN ===== */
+  .score-card {
+    background: var(--bg-panel);
+    border: 1.5px solid var(--amber);
+    padding: 32px;
+    text-align: center;
+    margin-bottom: 40px;
+  }
+  .score-label {
+    font-family: "Consolas", monospace;
+    font-size: 11px;
+    color: var(--amber);
+    letter-spacing: 4px;
+    margin-bottom: 8px;
+  }
+  .score-big {
+    font-size: 72px;
+    font-weight: 700;
+    color: var(--text-hi);
+    line-height: 1;
+    margin-bottom: 8px;
+  }
+  .score-big .denom {
+    color: var(--text-dim);
+    font-size: 0.55em;
+  }
+  .score-msg {
+    color: var(--teal);
+    font-style: italic;
+    font-size: 15px;
+  }
+
+  .review-title {
+    font-family: "Consolas", monospace;
+    font-size: 12px;
+    color: var(--amber);
+    letter-spacing: 3px;
+    margin: 32px 0 16px;
+  }
+
+  .review-item {
+    background: var(--bg-panel);
+    border-left: 4px solid var(--rule);
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  .review-item.correct  { border-left-color: var(--teal); }
+  .review-item.wrong    { border-left-color: var(--coral); }
+
+  .review-q {
+    font-weight: 600;
+    margin-bottom: 12px;
+    font-size: 15px;
+  }
+  .review-q code {
+    font-family: "Consolas", monospace;
+    background: var(--bg-code);
+    color: var(--teal);
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 0.9em;
+  }
+
+  .review-options {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 16px;
+  }
+  .review-opt {
+    padding: 8px 12px;
+    font-size: 13px;
+    border-left: 3px solid transparent;
+    color: var(--text-mid);
+  }
+  .review-opt.user-correct {
+    color: var(--teal);
+    border-left-color: var(--teal);
+    background: rgba(6, 214, 160, 0.06);
+  }
+  .review-opt.user-wrong {
+    color: var(--coral);
+    border-left-color: var(--coral);
+    background: rgba(239, 100, 97, 0.06);
+    text-decoration: line-through;
+    text-decoration-color: var(--coral);
+  }
+  .review-opt.right-answer {
+    color: var(--teal);
+    border-left-color: var(--teal);
+    background: rgba(6, 214, 160, 0.06);
+    font-weight: 600;
+  }
+  .review-opt .marker {
+    font-family: "Consolas", monospace;
+    margin-right: 8px;
+    color: var(--amber);
+  }
+
+  .review-explain {
+    font-size: 13px;
+    color: var(--text-hi);
+    background: var(--bg-code);
+    padding: 12px 14px;
+    border-left: 2px solid var(--amber);
+    line-height: 1.5;
+  }
+  .review-explain strong {
+    color: var(--amber);
+  }
+  .review-explain code {
+    font-family: "Consolas", monospace;
+    color: var(--teal);
+    background: rgba(0, 0, 0, 0.3);
+    padding: 1px 5px;
+    border-radius: 2px;
+    font-size: 0.95em;
+  }
+
+  /* ===== EASTER EGG ===== */
+  .easter {
+    margin-top: 56px;
+    padding-top: 32px;
+    border-top: 1px dashed var(--rule);
+  }
+  .easter-title {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--amber);
+    margin-bottom: 8px;
+    line-height: 1.2;
+  }
+  .easter-subtitle {
+    color: var(--text-mid);
+    font-size: 14px;
+    font-style: italic;
+    margin-bottom: 24px;
+  }
+  .easter-text {
+    color: var(--text-hi);
+    font-size: 14px;
+    margin-bottom: 16px;
+  }
+  .code-block {
+    background: var(--bg-code);
+    border: 1px solid var(--rule);
+    border-left: 4px solid var(--amber);
+    padding: 20px;
+    font-family: "Consolas", "Menlo", monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    overflow-x: auto;
+    margin-bottom: 16px;
+    white-space: pre;
+  }
+  .code-block .kw   { color: var(--amber); }
+  .code-block .str  { color: var(--teal); }
+  .code-block .fn   { color: #8AB4FF; }
+  .code-block .cmt  { color: var(--text-dim); font-style: italic; }
+  .code-block .num  { color: var(--coral); }
+
+  .actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 32px;
+    flex-wrap: wrap;
+  }
+
+  /* ===== FOOTER ===== */
+  footer {
+    margin-top: 64px;
+    padding-top: 24px;
+    border-top: 1px solid var(--rule);
+    font-family: "Consolas", monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 2px;
+    text-align: center;
+  }
+
+  /* Mobile tweaks */
+  @media (max-width: 600px) {
+    .start-title { font-size: 40px; }
+    .question-text { font-size: 19px; }
+    .score-big { font-size: 56px; }
+    .header { font-size: 10px; letter-spacing: 2px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <div class="header">
+    <span class="left">WEB SCRAPING / QUIZ</span>
+    <span class="right" id="screen-marker">START</span>
+  </div>
+
+  <!-- ============== START SCREEN ============== -->
+  <section class="screen active" id="screen-start">
+    <h1 class="start-title">Квиз</h1>
+    <p class="start-subtitle">requests · beautifulsoup · playwright</p>
+    <p class="start-desc">
+      Пять вопросов по веб-скрапингу. Правильные ответы откроются только в конце —
+      сначала пройди до финала, а потом увидишь, что было верно.
+    </p>
+    <button class="btn" onclick="startQuiz()">Начать →</button>
+  </section>
+
+  <!-- ============== QUESTION SCREEN ============== -->
+  <section class="screen" id="screen-question">
+    <div class="progress-row">
+      <span class="progress-label" id="q-progress">ВОПРОС 1 / 5</span>
+      <div class="progress-bar"><div class="progress-fill" id="q-fill"></div></div>
+    </div>
+
+    <h2 class="question-text" id="q-text"></h2>
+    <div class="options" id="q-options"></div>
+
+    <div class="nav-row">
+      <button class="btn" id="q-next" onclick="nextQuestion()" disabled>Дальше →</button>
+    </div>
+  </section>
+
+  <!-- ============== FINAL SCREEN ============== -->
+  <section class="screen" id="screen-final">
+    <div class="score-card">
+      <div class="score-label">РЕЗУЛЬТАТ</div>
+      <div class="score-big"><span id="score-num">0</span><span class="denom"> / 5</span></div>
+      <div class="score-msg" id="score-msg"></div>
+    </div>
+
+    <div class="review-title">// РАЗБОР</div>
+    <div id="review-list"></div>
+
+    <!-- Easter egg block -->
+    <div class="easter">
+      <h3 class="easter-title">А теперь — спарси этот квиз сам</h3>
+      <p class="easter-subtitle">мини-задание для самопроверки</p>
+
+      <p class="easter-text">
+        Вопросы и варианты ответов лежат прямо в HTML этой страницы.
+        Попробуй извлечь их через requests + BeautifulSoup:
+      </p>
+
+      <div class="code-block"><span class="kw">import</span> requests
+<span class="kw">from</span> bs4 <span class="kw">import</span> BeautifulSoup
+
+url = <span class="str">'PASTE_THIS_PAGE_URL_HERE'</span>
+response = requests.<span class="fn">get</span>(url)
+soup = BeautifulSoup(response.text, <span class="str">'html.parser'</span>)
+
+<span class="cmt"># вопросы хранятся в JS-массиве QUIZ_DATA</span>
+<span class="cmt"># попробуй найти его внутри тега &lt;script&gt;</span>
+script = soup.<span class="fn">find</span>(<span class="str">'script'</span>, string=<span class="kw">lambda</span> s: s <span class="kw">and</span> <span class="str">'QUIZ_DATA'</span> <span class="kw">in</span> s)
+
+<span class="cmt"># ...а дальше — твоя задача :)</span></div>
+
+      <p class="easter-text" style="color: var(--text-mid); font-size: 13px;">
+        💡 Подсказка: данные квиза находятся в переменной <code style="font-family:Consolas,monospace;color:var(--teal);background:var(--bg-code);padding:2px 6px;">QUIZ_DATA</code> внутри тега <code style="font-family:Consolas,monospace;color:var(--teal);background:var(--bg-code);padding:2px 6px;">&lt;script&gt;</code>.
+        Извлеки строку, найди JSON через регулярку или <code style="font-family:Consolas,monospace;color:var(--teal);background:var(--bg-code);padding:2px 6px;">json.loads</code>, и получишь все вопросы программно.
+      </p>
+    </div>
+
+    <div class="actions">
+      <button class="btn btn-secondary" onclick="restart()">Пройти заново</button>
+    </div>
+  </section>
+
+  <footer>
+    ВШЭ · Факультет экономических наук · Москва 2026
+  </footer>
+
+</div>
+
+<script>
+// ===== QUIZ DATA =====
+const QUIZ_DATA = [
+  {
+    q: "Какой метод BeautifulSoup возвращает ВСЕ подходящие элементы?",
+    options: [
+      "find()",
+      "select_one()",
+      "find_all()",
+      "get_all()"
+    ],
+    correct: 2,
+    explain: "<strong>find_all()</strong> возвращает список всех элементов, соответствующих условию. <code>find()</code> вернёт только первый, <code>select_one()</code> делает то же самое для CSS-селекторов, а <code>get_all()</code> в BeautifulSoup просто не существует."
+  },
+  {
+    q: "Что вернёт Requests при скрапинге JavaScript-сайта?",
+    options: [
+      "Полностью отрендеренный HTML с данными",
+      "Ошибку соединения",
+      "HTML без данных — JS ещё не выполнился",
+      "JSON с данными"
+    ],
+    correct: 2,
+    explain: "Requests делает <strong>статический снимок</strong> HTML в момент запроса. JavaScript при этом не выполняется, поэтому данные, которые подгружаются через React/Vue/Angular после загрузки страницы, в HTML отсутствуют. Для таких сайтов нужны Playwright или Selenium."
+  },
+  {
+    q: "Как в Playwright дождаться загрузки элемента?",
+    options: [
+      "time.sleep(5)",
+      "driver.implicitly_wait(10)",
+      "page.wait_for_selector('.element')",
+      "page.pause()"
+    ],
+    correct: 2,
+    explain: "<code>page.wait_for_selector()</code> — встроенное <strong>умное ожидание</strong> Playwright: ждёт ровно столько, сколько нужно для появления элемента (но не дольше таймаута). <code>time.sleep()</code> — это «тупая» пауза без проверки, <code>implicitly_wait</code> — синтаксис Selenium, <code>page.pause()</code> вообще открывает дебаггер."
+  },
+  {
+    q: "На странице 10 тегов h3. Что вернёт <code>soup.find('h3').text</code>?",
+    options: [
+      "Список текста всех 10 тегов h3",
+      "Ошибку — нужно указать индекс",
+      "Текст первого тега h3 на странице",
+      "Текст всех тегов h3 через пробел"
+    ],
+    correct: 2,
+    explain: "<strong>find()</strong> всегда возвращает <strong>первый</strong> найденный элемент и останавливается — это его принципиальное отличие от <code>find_all()</code>, который собирает все. После этого <code>.text</code> просто извлекает текстовое содержимое этого одного тега."
+  },
+  {
+    q: "Какой инструмент выбрать для нового проекта со скрапингом JavaScript-сайтов?",
+    options: [
+      "Requests + BeautifulSoup — они справятся",
+      "Scrapy — он самый мощный",
+      "Selenium — он старше и надёжнее",
+      "Playwright — проще установка и встроенные ожидания"
+    ],
+    correct: 3,
+    explain: "<strong>Playwright</strong> — современный выбор для нового проекта: устанавливается одной командой <code>pip install playwright && playwright install</code>, имеет встроенные умные ожидания (без WebDriverWait), более лаконичный API. Selenium тоже работает, но в новом коде Playwright предпочтительнее. Requests с JS не справится в принципе, а Scrapy — это про крупные промышленные скраперы, где порог входа выше."
+  }
+];
+
+// ===== STATE =====
+let currentIndex = 0;
+let userAnswers = []; // index of chosen option, or null
+
+// ===== HELPERS =====
+function show(screenId) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(screenId).classList.add('active');
+  // Update top-right marker
+  const marker = document.getElementById('screen-marker');
+  if (screenId === 'screen-start')    marker.textContent = 'START';
+  if (screenId === 'screen-question') marker.textContent = `Q ${currentIndex + 1} / 5`;
+  if (screenId === 'screen-final')    marker.textContent = 'РЕЗУЛЬТАТ';
+}
+
+function startQuiz() {
+  currentIndex = 0;
+  userAnswers = new Array(QUIZ_DATA.length).fill(null);
+  renderQuestion();
+  show('screen-question');
+}
+
+function renderQuestion() {
+  const q = QUIZ_DATA[currentIndex];
+  document.getElementById('q-progress').textContent = `ВОПРОС ${currentIndex + 1} / ${QUIZ_DATA.length}`;
+  document.getElementById('q-fill').style.width = `${((currentIndex + 1) / QUIZ_DATA.length) * 100}%`;
+  document.getElementById('q-text').innerHTML = q.q;
+
+  const optsContainer = document.getElementById('q-options');
+  optsContainer.innerHTML = '';
+  const letters = ['A', 'B', 'C', 'D'];
+
+  q.options.forEach((opt, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'option';
+    btn.innerHTML = `<span class="letter">${letters[i]}.</span><span>${opt}</span>`;
+    btn.onclick = () => selectOption(i);
+    if (userAnswers[currentIndex] === i) btn.classList.add('selected');
+    optsContainer.appendChild(btn);
+  });
+
+  // Update next button
+  const nextBtn = document.getElementById('q-next');
+  nextBtn.disabled = userAnswers[currentIndex] === null;
+  nextBtn.textContent = (currentIndex === QUIZ_DATA.length - 1) ? 'Завершить →' : 'Дальше →';
+
+  // Update top-right marker
+  document.getElementById('screen-marker').textContent = `Q ${currentIndex + 1} / 5`;
+}
+
+function selectOption(i) {
+  userAnswers[currentIndex] = i;
+  // Update visuals
+  const opts = document.querySelectorAll('#q-options .option');
+  opts.forEach((o, idx) => o.classList.toggle('selected', idx === i));
+  document.getElementById('q-next').disabled = false;
+}
+
+function nextQuestion() {
+  if (currentIndex < QUIZ_DATA.length - 1) {
+    currentIndex++;
+    renderQuestion();
+  } else {
+    renderFinal();
+    show('screen-final');
+  }
+}
+
+function renderFinal() {
+  let score = 0;
+  QUIZ_DATA.forEach((q, i) => {
+    if (userAnswers[i] === q.correct) score++;
+  });
+
+  document.getElementById('score-num').textContent = score;
+
+  // Score message
+  const msgs = [
+    "стоит пересмотреть слайды :)",
+    "есть, над чем поработать",
+    "неплохо, но можно лучше",
+    "крепкие знания!",
+    "почти идеально",
+    "perfect score — снимаю шляпу"
+  ];
+  document.getElementById('score-msg').textContent = msgs[score];
+
+  // Review list
+  const list = document.getElementById('review-list');
+  list.innerHTML = '';
+  const letters = ['A', 'B', 'C', 'D'];
+
+  QUIZ_DATA.forEach((q, qi) => {
+    const userAns = userAnswers[qi];
+    const isCorrect = userAns === q.correct;
+
+    const item = document.createElement('div');
+    item.className = 'review-item ' + (isCorrect ? 'correct' : 'wrong');
+
+    const optionsHTML = q.options.map((opt, oi) => {
+      let cls = 'review-opt';
+      let marker = '';
+      if (oi === q.correct) {
+        cls += ' right-answer';
+        marker = '✓';
+      }
+      if (oi === userAns && oi !== q.correct) {
+        cls += ' user-wrong';
+        marker = '✗';
+      }
+      if (oi === userAns && oi === q.correct) {
+        marker = '✓';
+      }
+      return `<div class="${cls}"><span class="marker">${marker || ' '}</span>${letters[oi]}. ${opt}</div>`;
+    }).join('');
+
+    item.innerHTML = `
+      <div class="review-q">${qi + 1}. ${q.q}</div>
+      <div class="review-options">${optionsHTML}</div>
+      <div class="review-explain">${q.explain}</div>
+    `;
+    list.appendChild(item);
+  });
+}
+
+function restart() {
+  startQuiz();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+</script>
+
+</body>
+</html>
